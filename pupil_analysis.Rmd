@@ -23,7 +23,7 @@ library(stringr)
 library(magrittr)
 theme_set(theme_bw())
 
-ret1 <- read.asc('~/Documents/others/kevin/401ret.asc')
+ret1 <- read.asc('~/Documents/others/kevin/ape-goals/401ret.asc')
 names(ret1)
 ```
 
@@ -78,7 +78,6 @@ Zoom in on one minute
 
 ggplot(ret1_data %>% filter(between(time, 60, 120)), aes(time, ps, color = block)) +
   geom_line() +
-  scale_x_continuous(breaks = seq(60, 120, 5)) +
   xlab('Time (s)') +
   ylab('Pupil Diameter')
 ```
@@ -112,6 +111,7 @@ Get time of event markers
 ```{r}
 iti1_times <- ret1_data %>%
   mutate(text = gsub(' ', '', text)) %>%
+  drop_na() %>%
   spread(text, time) %>%
   select(starts_with('ITI1')) %>%
   gather(text, time) %>%
@@ -120,6 +120,7 @@ iti1_times <- ret1_data %>%
 
 iti2_times <- ret1_data %>%
   mutate(text = gsub(' ', '', text)) %>%
+  drop_na() %>%
   spread(text, time) %>%
   select(starts_with('ITI2')) %>%
   gather(text, time) %>%
@@ -128,6 +129,7 @@ iti2_times <- ret1_data %>%
 
 picstim_times <- ret1_data %>%
   mutate(text = gsub(' ', '', text)) %>%
+  drop_na() %>%
   spread(text, time) %>%
   select(starts_with('PICSTIM')) %>%
   gather(text, time) %>%
@@ -136,6 +138,7 @@ picstim_times <- ret1_data %>%
 
 retgoal_times <- ret1_data %>%
   mutate(text = gsub(' ', '', text)) %>%
+  drop_na() %>%
   spread(text, time) %>%
   select(starts_with('RETGOAL')) %>%
   gather(text, time) %>%
@@ -144,6 +147,7 @@ retgoal_times <- ret1_data %>%
 
 resp_times <- ret1_data %>%
   mutate(text = gsub(' ', '', text)) %>%
+  drop_na() %>%
   spread(text, time) %>%
   select(starts_with('RESP')) %>%
   gather(text, time) %>%
@@ -204,3 +208,35 @@ ggplot(ret1_data %>% filter(between(time, 60, 120)), aes(time, ps_binned)) +
   geom_vline(xintercept = resp_times[between(resp_times, 60, 120)], color = "magenta")
 
 ```
+
+Patterns: 
+* PD decreased after goal state onset
+* decreased steeply during first ISI
+* increased rapidly at onset of pic stim
+* stable/slight increase during second ISI
+
+Look at another minute.
+
+
+```{r fig.height = 2, fig.width = 5}
+minute2_times <- function(times) {
+  between(times, 120, 180)
+}
+
+ggplot(ret1_data %>% filter(minute2_times(time)), aes(time, ps_binned)) +
+  geom_line(color = "darkgrey") +
+  xlab('Time Bin') +
+  ylab('Pupil Diameter') +
+  geom_vline(xintercept = iti1_times[minute2_times(iti1_times)], color = "turquoise4", linetype = 2) +
+  geom_vline(xintercept = iti2_times[minute2_times(iti2_times)], color = "plum4", linetype = 2) +
+  geom_vline(xintercept = retgoal_times[minute2_times(retgoal_times)], color = "turquoise4") +
+  geom_vline(xintercept = picstim_times[minute2_times(picstim_times)], color = "plum4") +
+  geom_vline(xintercept = resp_times[minute2_times(resp_times)], color = "magenta")
+```
+
+
+Pattern confirmation?
+* PD not decreasing at ret goal onset
+* still see decrease during ISI
+* still increases rapidly at onset of pic stim
+* still see stable/slight increase (w/possible dip in the middle) for second ISI
