@@ -1,0 +1,206 @@
+
+* unsworth, robison, & miller 2018
+  * baseline = 2000ms (fixation)
+  * baseline subtracted from 00.000 data
+  * averaged into series of 200ms time windows following appearance of numbers
+  * phasic responses had last 200ms of ISI subtracted out, divided into 20ms windows
+  * peak (usually 550-750ms for PVT) identified, only analyzed if "clear peak is present"
+  * fast trials showed greater PD 200-300ms prestim for fix2
+  * same seen for fix8, though intercept lower (-.04 vs .01, rather than -.02 vs .04)   * fast responses had larger phasic responses
+  * phasic varied: fast peaks at 600ms, .12, slow at 650ms, .04 -- 50ms faster, .08 higher
+  * phasic fix2: fast peaks at 550ms, .16, slow at 600ms, .10 -- 50ms faster, .06 higher
+  * phasic fix8: fast peaks at 600ms, .14, slow at 650ms, .08 -- 50ms faster, .06 higher
+
+http://www.eyetracking-r.com/vignettes/preparing_your_data
+https://cran.r-project.org/web/packages/eyelinker/vignettes/basics.html
+
+```{r}
+#devtools::install_github(repo = 'dahtah/eyelinker')
+library(eyelinker)
+library(eyetrackingR)
+library(tidyverse)
+library(stringr)
+library(magrittr)
+theme_set(theme_bw())
+
+ret1 <- read.asc('~/Documents/others/kevin/401ret.asc')
+names(ret1)
+```
+
+* raw: raw data as a function of time
+* sac: saccade events
+* fix: fixations
+* blinks: blinks
+* msg: message events
+* info: meta-data
+
+```{r}
+str(ret1$info)
+```
+
+* cr: corneal reflection mode
+* input: contains input info
+* right: right eye recorded
+* mono: monocular recording
+
+```{r}
+tail(head(ret1$raw, 30000)) # tons of leading NAs
+```
+
+* time: ms
+* xp, yp: x and y positions of eye
+* ps: pupil size
+* cr.info: status of corneal reflection tracking. "..." means good.
+* block: .asc file is divided into START and END blocks, indexed here
+
+```{r fig.width = 4, fig.height = 1}
+ret1_data <- ret1$raw %>%
+  select(time, ps, block) %>%
+  drop_na() 
+
+start_time <- min(ret1_data$time)
+
+ret1_data %<>% 
+  mutate(time = (time - start_time)/1000)
+
+head(ret1_data)
+
+ggplot(ret1_data, aes(time, ps, color = block)) +
+  geom_line() +
+  scale_x_continuous(breaks = seq(0, 1380, 60)) +
+  xlab('Time (s)') +
+  ylab('Pupil Diameter')
+```
+
+Zoom in on one minute
+
+```{r}
+
+ggplot(ret1_data %>% filter(between(time, 60, 120)), aes(time, ps, color = block)) +
+  geom_line() +
+  scale_x_continuous(breaks = seq(60, 120, 5)) +
+  xlab('Time (s)') +
+  ylab('Pupil Diameter')
+```
+
+Smooth data
+
+```{r fig.width = 4, fig.height = 1}
+ret1_data %<>%
+  mutate(smoothed_onset = ksmooth(time, ps, "normal", bandwidth = 3)[[1]],
+         smoothed_ps = ksmooth(time, ps, "normal", bandwidth = 3)[[2]]) 
+
+ret1_data %>%
+ggplot(aes(smoothed_onset, smoothed_ps, color = block)) +
+  geom_line() +
+  scale_x_continuous(breaks = seq(0, 1380, 60)) +
+  xlab('Time (s)') +
+  ylab('Pupil Diameter')
+```
+
+```{r}
+ret1_events <- ret1$msg %>%
+    mutate(time = (time - start_time)/1000)
+```
+
+```{r}
+ret1_data %<>% left_join(ret1_events, by = c("block", "time"))
+```
+
+Get time of event markers
+
+```{r}
+iti1_times <- ret1_data %>%
+  mutate(text = gsub(' ', '', text)) %>%
+  spread(text, time) %>%
+  select(starts_with('ITI1')) %>%
+  gather(text, time) %>%
+  drop_na() %>%
+  use_series(time)
+
+iti2_times <- ret1_data %>%
+  mutate(text = gsub(' ', '', text)) %>%
+  spread(text, time) %>%
+  select(starts_with('ITI2')) %>%
+  gather(text, time) %>%
+  drop_na() %>%
+  use_series(time)
+
+picstim_times <- ret1_data %>%
+  mutate(text = gsub(' ', '', text)) %>%
+  spread(text, time) %>%
+  select(starts_with('PICSTIM')) %>%
+  gather(text, time) %>%
+  drop_na() %>%
+  use_series(time)
+
+retgoal_times <- ret1_data %>%
+  mutate(text = gsub(' ', '', text)) %>%
+  spread(text, time) %>%
+  select(starts_with('RETGOAL')) %>%
+  gather(text, time) %>%
+  drop_na() %>%
+  use_series(time)
+
+resp_times <- ret1_data %>%
+  mutate(text = gsub(' ', '', text)) %>%
+  spread(text, time) %>%
+  select(starts_with('RESP')) %>%
+  gather(text, time) %>%
+  drop_na() %>%
+  use_series(time)
+```
+
+```{r fig.width = 4, fig.height = 1}
+ret1_data %>%
+ggplot(aes(time, ps, color = block)) +
+  geom_line() +
+  scale_x_continuous(breaks = seq(0, 1380, 60)) +
+  xlab('Time (s)') +
+  ylab('Pupil Diameter') +
+  geom_vline(xintercept = iti1_times, color = "grey") +
+  geom_vline(xintercept = iti2_times, color = "lightgrey") 
+```
+
+Zoom in on one minute
+
+
+```{r fig.height = 2, fig.width = 5}
+
+ggplot(ret1_data %>% filter(between(time, 60, 120)), aes(time, ps)) +
+  geom_line(color = "darkgrey") +
+  scale_x_continuous(breaks = seq(60, 120, 5)) +
+  xlab('Time (s)') +
+  ylab('Pupil Diameter') +
+  geom_vline(xintercept = iti1_times[between(iti1_times, 60, 120)], color = "turquoise4", linetype = 2) +
+  geom_vline(xintercept = iti2_times[between(iti2_times, 60, 120)], color = "plum4", linetype = 2) +
+  geom_vline(xintercept = retgoal_times[between(retgoal_times, 60, 120)], color = "turquoise4") +
+  geom_vline(xintercept = picstim_times[between(picstim_times, 60, 120)], color = "plum4") +
+  geom_vline(xintercept = resp_times[between(resp_times, 60, 120)], color = "magenta")
+
+```
+
+Smooth via time bins
+```{r}
+ret1_data %<>%
+  mutate(time_bin = ntile(time, max(time)))
+
+ret1_data %<>%
+  group_by(time_bin) %>%
+  mutate(ps_binned = mean(ps))
+```
+
+
+```{r fig.height = 2, fig.width = 5}
+
+ggplot(ret1_data %>% filter(between(time, 60, 120)), aes(time, ps_binned)) +
+  geom_line(color = "darkgrey") +
+  xlab('Time Bin') +
+  ylab('Pupil Diameter') +
+  geom_vline(xintercept = iti1_times[between(iti1_times, 60, 120)], color = "turquoise4", linetype = 2) +
+  geom_vline(xintercept = iti2_times[between(iti2_times, 60, 120)], color = "plum4", linetype = 2) +
+  geom_vline(xintercept = retgoal_times[between(retgoal_times, 60, 120)], color = "turquoise4") +
+  geom_vline(xintercept = picstim_times[between(picstim_times, 60, 120)], color = "plum4") +
+  geom_vline(xintercept = resp_times[between(resp_times, 60, 120)], color = "magenta")
+
+```
