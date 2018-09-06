@@ -153,6 +153,8 @@ resp_times <- ret1_data %>%
   gather(text, time) %>%
   drop_na() %>%
   use_series(time)
+
+# thinking about which aspects from retrieval csv file to bring in ... need block column, need retgoal_xx, need resp_xx (for each of 21 trials per block); maybe I can organize retrieval csv file in this way to pull in retgoal and resp accuracy for each trial (e.g., // BLOCK 1 // RETGOAL_1 SMAL // RESP_1 HIT //) ... seems confusing to go by onset time in retrieval csv file because we have messages from Eyelink already? 
 ```
 
 ```{r fig.width = 4, fig.height = 1}
