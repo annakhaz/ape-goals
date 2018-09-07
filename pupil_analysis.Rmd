@@ -23,8 +23,18 @@ library(stringr)
 library(magrittr)
 theme_set(theme_bw())
 
-ret1 <- read.asc('~/Documents/others/kevin/ape-goals/401ret.asc')
+#note working directory for .asc files will differ in anna's version
+ret1 <- read.asc('~/Desktop/eyetracking/401ret.asc')
 names(ret1)
+
+ret2 <- read.asc('~/Desktop/eyetracking/401ret2.asc')
+names(ret2)
+
+ret3 <- read.asc('~/Desktop/eyetracking/401ret3.asc')
+names(ret3)
+
+ret4 <- read.asc('~/Desktop/eyetracking/401ret4.asc')
+names(ret4)
 ```
 
 * raw: raw data as a function of time
@@ -36,6 +46,9 @@ names(ret1)
 
 ```{r}
 str(ret1$info)
+str(ret2$info)
+str(ret3$info)
+str(ret4$info)
 ```
 
 * cr: corneal reflection mode
@@ -45,6 +58,9 @@ str(ret1$info)
 
 ```{r}
 tail(head(ret1$raw, 30000)) # tons of leading NAs
+tail(head(ret2$raw, 30000))
+tail(head(ret3$raw, 30000))
+tail(head(ret4$raw, 30000))
 ```
 
 * time: ms
@@ -58,14 +74,65 @@ ret1_data <- ret1$raw %>%
   select(time, ps, block) %>%
   drop_na() 
 
-start_time <- min(ret1_data$time)
+start_time1 <- min(ret1_data$time)
 
 ret1_data %<>% 
-  mutate(time = (time - start_time)/1000)
+  mutate(time = (time - start_time1)/1000)
 
 head(ret1_data)
 
 ggplot(ret1_data, aes(time, ps, color = block)) +
+  geom_line() +
+  scale_x_continuous(breaks = seq(0, 1380, 60)) +
+  xlab('Time (s)') +
+  ylab('Pupil Diameter')
+
+ret2_data <- ret2$raw %>%
+  select(time, ps, block) %>%
+  drop_na() 
+
+start_time2 <- min(ret2_data$time)
+
+ret2_data %<>% 
+  mutate(time = (time - start_time2)/1000)
+
+head(ret2_data)
+
+ggplot(ret2_data, aes(time, ps, color = block)) +
+  geom_line() +
+  scale_x_continuous(breaks = seq(0, 1380, 60)) +
+  xlab('Time (s)') +
+  ylab('Pupil Diameter')
+
+ret3_data <- ret3$raw %>%
+  select(time, ps, block) %>%
+  drop_na() 
+
+start_time3 <- min(ret3_data$time)
+
+ret3_data %<>% 
+  mutate(time = (time - start_time3)/1000)
+
+head(ret3_data)
+
+ggplot(ret3_data, aes(time, ps, color = block)) +
+  geom_line() +
+  scale_x_continuous(breaks = seq(0, 1380, 60)) +
+  xlab('Time (s)') +
+  ylab('Pupil Diameter')
+
+ret4_data <- ret4$raw %>%
+  select(time, ps, block) %>%
+  drop_na() 
+
+start_time4 <- min(ret4_data$time)
+
+ret4_data %<>% 
+  mutate(time = (time - start_time4)/1000)
+
+head(ret4_data)
+
+ggplot(ret4_data, aes(time, ps, color = block)) +
   geom_line() +
   scale_x_continuous(breaks = seq(0, 1380, 60)) +
   xlab('Time (s)') +
@@ -99,11 +166,61 @@ ggplot(aes(smoothed_onset, smoothed_ps, color = block)) +
 
 ```{r}
 ret1_events <- ret1$msg %>%
-    mutate(time = (time - start_time)/1000)
+    mutate(time = (time - start_time1)/1000)
+
+ret2_events <- ret2$msg %>%
+    mutate(time = (time - start_time2)/1000)
+
+ret3_events <- ret3$msg %>%
+    mutate(time = (time - start_time3)/1000)
+
+ret4_events <- ret4$msg %>%
+    mutate(time = (time - start_time4)/1000)
 ```
 
 ```{r}
 ret1_data %<>% left_join(ret1_events, by = c("block", "time"))
+
+ret2_data %<>% left_join(ret2_events, by = c("block", "time"))
+
+ret3_data %<>% left_join(ret3_events, by = c("block", "time"))
+
+ret4_data %<>% left_join(ret4_events, by = c("block", "time"))
+```
+
+```{r}
+#input correct block numbers for eventual rbind file
+
+ret2_data$block[ret2_data$block == '1'] <- '4'
+ret2_data$block[ret2_data$block == '2'] <- '5'
+ret2_data$block[ret2_data$block == '3'] <- '6'
+
+ret3_data$block[ret3_data$block == '1'] <- '7'
+ret3_data$block[ret3_data$block == '2'] <- '8'
+ret3_data$block[ret3_data$block == '3'] <- '9'
+
+ret4_data$block[ret4_data$block == '1'] <- '10'
+ret4_data$block[ret4_data$block == '2'] <- '11'
+ret4_data$block[ret4_data$block == '3'] <- '12'
+```
+
+```{r}
+#create one retrieval file vertically
+
+ret_alldata <- rbind(ret1_data, ret2_data, ret3_data, ret4_data)
+```
+
+```{r}
+#now bring in csv file with retrieval behavioral info
+#note working directory for .csv file will differ in anna's version
+ret_behav <- read.csv('~/Desktop/eyetracking/401ret.csv')
+names(ret_behav)
+```
+
+```{r}
+#join ret_behav file with ret_alldata file (to get retrieval behaviors in)
+
+ret_eyesbehav <- merge(ret_alldata,ret_behav, all.x=TRUE)
 ```
 
 Get time of event markers
